@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stitch Tracker Align Fix</title>
+  <style>
+    :root{
+      --bg1:#fff7fb; --bg2:#f8fbff; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+      --border:#e5e7eb; --shadow:0 16px 36px rgba(0,0,0,.08);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:linear-gradient(180deg,var(--bg1),var(--bg2))}
+    .wrap{max-width:1120px;margin:0 auto;padding:16px 12px 36px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:18px}
+    .top{text-align:center;margin-bottom:12px}
+    .emoji{font-size:42px}
+    h1{margin:8px 0;font-size:clamp(30px,6vw,46px)}
+    .sub{color:var(--muted);font-size:17px;line-height:1.45;max-width:860px;margin:0 auto}
+    .upload-label{margin-top:16px;display:flex;align-items:center;justify-content:center;width:100%;min-height:72px;border-radius:20px;border:2px dashed #f9a8d4;background:#fff1f7;color:#9d174d;font-size:22px;font-weight:800;cursor:pointer;text-align:center;padding:16px}
+    input[type=file]{display:none}
+    .filename{text-align:center;color:var(--muted);margin-top:10px;min-height:22px}
+    .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:14px}
+    .field{background:#f9fafb;border:1px solid var(--border);border-radius:18px;padding:12px}
+    .field label{display:block;font-size:15px;font-weight:800;margin-bottom:8px}
+    .field input{width:100%;padding:12px;border-radius:12px;border:1px solid #d1d5db;font-size:22px}
+    .big-btn{width:100%;border:none;border-radius:18px;background:linear-gradient(180deg,#60a5fa,#2563eb);color:#fff;font-size:24px;font-weight:800;padding:16px;margin-top:12px;cursor:pointer}
+    .toolbar,.mini-toolbar{margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .toolbar button,.mini-toolbar button{border:none;border-radius:18px;color:#fff;font-weight:800;padding:14px;font-size:17px;cursor:pointer}
+    .pink{background:linear-gradient(180deg,#f472b6,#db2777)}
+    .green{background:linear-gradient(180deg,#4ade80,#16a34a)}
+    .blue{background:linear-gradient(180deg,#60a5fa,#2563eb)}
+    .orange{background:linear-gradient(180deg,#fbbf24,#d97706)}
+    .purple{background:linear-gradient(180deg,#a78bfa,#7c3aed)}
+    .slate{background:linear-gradient(180deg,#94a3b8,#475569)}
+    .panel{margin-top:12px;border:1px solid var(--border);border-radius:18px;background:#f9fafb;padding:12px}
+    .panel h3{margin:0 0 10px;font-size:18px}
+    .slider-row{margin-bottom:10px}
+    .slider-row:last-child{margin-bottom:0}
+    .slider-row label{display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:800;margin-bottom:5px}
+    .slider-row input[type=range]{width:100%}
+    .canvas-wrap{margin-top:14px;border-radius:20px;overflow:hidden;border:1px solid var(--border);background:#f3f4f6;min-height:280px;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none}
+    canvas{display:none;width:100%;height:auto;background:#fff;touch-action:none}
+    .empty{padding:30px 18px;color:var(--muted);text-align:center;font-size:18px;line-height:1.5}
+    .controls{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+    .controls button{border:none;border-radius:18px;min-height:68px;background:linear-gradient(180deg,#4ade80,#16a34a);color:#fff;font-size:28px;font-weight:900;cursor:pointer}
+    .status{margin-top:14px;text-align:center;font-size:28px;font-weight:900}
+    .status small{display:block;margin-top:6px;color:var(--muted);font-size:15px;font-weight:500;line-height:1.45}
+    .legend{margin-top:14px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .badge{border-radius:16px;padding:12px;font-size:14px;text-align:center;background:#fff;border:1px solid var(--border);font-weight:700}
+    .notes{margin-top:14px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:16px;padding:12px 14px;font-size:14px;line-height:1.55}
+    .kbd{display:inline-block;padding:2px 8px;border-radius:8px;background:#111827;color:#fff;font-weight:800;font-size:12px;margin:0 2px}
+    @media (max-width:820px){.grid,.toolbar,.legend,.mini-toolbar{grid-template-columns:1fr}.controls button{min-height:62px}.status{font-size:24px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="top">
+      <div class="emoji">🧶</div>
+      <h1>Stitch Tracker</h1>
+      <div class="sub">Stable alignment build. Proper crop box, working Scale X and Scale Y, wheel zoom, drag image, opacity and stronger grid overlays. I removed the experimental warp because it was distorting the image instead of helping alignment.</div>
+    </div>
+
+    <label class="upload-label" for="upload">📷 Upload project image</label>
+    <input type="file" id="upload" accept="image/*">
+    <div class="filename" id="filename">No image selected yet</div>
+
+    <div class="grid">
+      <div class="field"><label for="rows">Rows</label><input type="number" id="rows" value="20" min="1"></div>
+      <div class="field"><label for="cols">Columns</label><input type="number" id="cols" value="20" min="1"></div>
+      <div class="field"><label for="axisStep">Grid number increment</label><input type="number" id="axisStep" value="1" min="1"></div>
+    </div>
+
+    <button class="big-btn" id="applyBtn">Apply Grid</button>
+
+    <div class="toolbar">
+      <button class="pink" id="setStartBtn">⭐ Set Start Position</button>
+      <button class="green" id="clearPathBtn">🧹 Clear Progress Highlight</button>
+      <button class="orange" id="cropModeBtn">✂️ Crop Mode: Off</button>
+      <button class="blue" id="dragModeBtn">✋ Drag Image Mode: On</button>
+      <button class="purple" id="focusModeBtn">🎯 One Row Focus: Off</button>
+      <button class="slate" id="resetViewBtn">🔎 Reset View</button>
+    </div>
+
+    <div class="panel">
+      <h3>Image alignment</h3>
+      <div class="slider-row"><label><span>Zoom</span><span id="zoomVal">1.00x</span></label><input type="range" id="zoomSlider" min="0.4" max="6" step="0.02" value="1"></div>
+      <div class="slider-row"><label><span>Scale X</span><span id="scaleXVal">1.00x</span></label><input type="range" id="scaleXSlider" min="0.4" max="3" step="0.01" value="1"></div>
+      <div class="slider-row"><label><span>Scale Y</span><span id="scaleYVal">1.00x</span></label><input type="range" id="scaleYSlider" min="0.4" max="3" step="0.01" value="1"></div>
+      <div class="slider-row"><label><span>Move left / right</span><span id="panXVal">0</span></label><input type="range" id="panXSlider" min="-1200" max="1200" step="1" value="0"></div>
+      <div class="slider-row"><label><span>Move up / down</span><span id="panYVal">0</span></label><input type="range" id="panYSlider" min="-1200" max="1200" step="1" value="0"></div>
+      <div class="slider-row"><label><span>Image opacity</span><span id="opacityVal">1.00</span></label><input type="range" id="opacitySlider" min="0.1" max="1" step="0.02" value="1"></div>
+      <div class="slider-row"><label><span>Major grid line spacing</span><span id="majorVal">10</span></label><input type="range" id="majorSlider" min="2" max="20" step="1" value="10"></div>
+    </div>
+
+    <div class="canvas-wrap">
+      <div class="empty" id="emptyState">Choose an image first.<br><br>Then crop it, drag it, scale width and height separately, and line it up with the grid.</div>
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <button id="leftBtn">←</button>
+      <button id="upBtn">↑</button>
+      <button id="downBtn">↓</button>
+      <button id="rightBtn">→</button>
+    </div>
+
+    <div class="mini-toolbar">
+      <button class="orange" id="undoBtn">↩ Undo</button>
+      <button class="blue" id="rowDoneBtn">✅ Mark Current Row Done</button>
+      <button class="green" id="saveBtn">💾 Save Progress</button>
+    </div>
+
+    <div class="status" id="status">Row: 1 | Stitch: 1
+      <small>Keyboard: <span class="kbd">←</span><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">→</span> move • <span class="kbd">Enter</span> mark row complete • mouse wheel zooms • drag image to align</small>
+    </div>
+
+    <div class="legend">
+      <div class="badge">Scale X changes width only</div>
+      <div class="badge">Scale Y changes height only</div>
+      <div class="badge">Crop mode now uses a proper visible crop box</div>
+      <div class="badge">Experimental warp removed so alignment stays stable</div>
+    </div>
+
+    <div class="notes">
+      Best workflow: crop first → drag into place → adjust Scale X and Scale Y → use mouse wheel for fine zoom → lower image opacity slightly to check line-up.
+    </div>
+  </div>
+</div>
+
+<script>
+const upload = document.getElementById("upload");
+const filenameEl = document.getElementById("filename");
+const rowsInput = document.getElementById("rows");
+const colsInput = document.getElementById("cols");
+const axisStepInput = document.getElementById("axisStep");
+const applyBtn = document.getElementById("applyBtn");
+const canvas = document.getElementById("canvas");
+const emptyState = document.getElementById("emptyState");
+const ctx = canvas.getContext("2d");
+
+const zoomSlider = document.getElementById("zoomSlider");
+const scaleXSlider = document.getElementById("scaleXSlider");
+const scaleYSlider = document.getElementById("scaleYSlider");
+const panXSlider = document.getElementById("panXSlider");
+const panYSlider = document.getElementById("panYSlider");
+const opacitySlider = document.getElementById("opacitySlider");
+const majorSlider = document.getElementById("majorSlider");
+
+const zoomVal = document.getElementById("zoomVal");
+const scaleXVal = document.getElementById("scaleXVal");
+const scaleYVal = document.getElementById("scaleYVal");
+const panXVal = document.getElementById("panXVal");
+const panYVal = document.getElementById("panYVal");
+const opacityVal = document.getElementById("opacityVal");
+const majorVal = document.getElementById("majorVal");
+const statusEl = document.getElementById("status");
+
+let img = new Image();
+let imageLoaded = false;
+let rows = 20;
+let cols = 20;
+let axisStep = 1;
+let majorStep = 10;
+let currentRow = 0;
+let currentCol = 0;
+let startRow = 0;
+let startCol = 0;
+let hasStart = false;
+let choosingStart = false;
+let visited = new Set();
+let historyStack = [];
+let rowDoneSet = new Set();
+
+let zoom = 1;
+let scaleX = 1;
+let scaleY = 1;
+let panX = 0;
+let panY = 0;
+let imageOpacity = 1;
+
+let dragImageMode = true;
+let cropMode = false;
+let focusMode = false;
+
+let draggingImage = false;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragPanX = 0;
+let dragPanY = 0;
+
+let cropRect = null;
+let draggingCropHandle = null;
+let draggingCropBody = false;
+let cropDragStart = null;
+
+const SAVE_KEY = "stitch-tracker-align-fix-save";
+
+function cellKey(r,c){ return `${r},${c}`; }
+
+function createDefaultCrop() {
+  cropRect = { x: 0.03, y: 0.03, w: 0.94, h: 0.94 };
+}
+
+function clampNumbers() {
+  rows = Math.max(1, parseInt(rowsInput.value || "1", 10));
+  cols = Math.max(1, parseInt(colsInput.value || "1", 10));
+  axisStep = Math.max(1, parseInt(axisStepInput.value || "1", 10));
+  majorStep = Math.max(2, parseInt(majorSlider.value || "10", 10));
+  currentRow = Math.max(0, Math.min(rows - 1, currentRow));
+  currentCol = Math.max(0, Math.min(cols - 1, currentCol));
+  startRow = Math.max(0, Math.min(rows - 1, startRow));
+  startCol = Math.max(0, Math.min(cols - 1, startCol));
+}
+
+function updateText() {
+  zoomVal.textContent = `${Number(zoomSlider.value).toFixed(2)}x`;
+  scaleXVal.textContent = `${Number(scaleXSlider.value).toFixed(2)}x`;
+  scaleYVal.textContent = `${Number(scaleYSlider.value).toFixed(2)}x`;
+  panXVal.textContent = panXSlider.value;
+  panYVal.textContent = panYSlider.value;
+  opacityVal.textContent = Number(opacitySlider.value).toFixed(2);
+  majorVal.textContent = majorSlider.value;
+  document.getElementById("dragModeBtn").textContent = dragImageMode ? "✋ Drag Image Mode: On" : "✋ Drag Image Mode: Off";
+  document.getElementById("cropModeBtn").textContent = cropMode ? "✂️ Crop Mode: On" : "✂️ Crop Mode: Off";
+  document.getElementById("focusModeBtn").textContent = focusMode ? "🎯 One Row Focus: On" : "🎯 One Row Focus: Off";
+}
+
+function currentColLabel(col) { return cols - col; }
+
+function updateStatus() {
+  const startText = hasStart ? `Start: Row ${startRow + 1}, Stitch ${currentColLabel(startCol)}` : "Start not set yet";
+  statusEl.innerHTML = `Row: ${currentRow + 1} | Stitch: ${currentColLabel(currentCol)}<small>${startText}<br>Keyboard: <span class="kbd">←</span><span class="kbd">↑</span><span class="kbd">↓</span><span class="kbd">→</span> move • <span class="kbd">Enter</span> mark row complete • mouse wheel zooms • drag image to align</small>`;
+}
+
+function setupCanvasSize() {
+  const maxWidth = Math.min(window.innerWidth - 32, 1060);
+  const axisPadX = 56;
+  const axisPadY = 52;
+  let ratio = 1;
+  if (img.width && img.height) ratio = img.height / img.width;
+  const gridW = maxWidth - axisPadX;
+  const gridH = Math.max(340, Math.round(gridW * ratio));
+  canvas.width = maxWidth;
+  canvas.height = gridH + axisPadY;
+}
+
+function saveState() {
+  if (!imageLoaded) return;
+  try {
+    const payload = {
+      imageData: img.src, rows, cols, axisStep, majorStep,
+      currentRow, currentCol, startRow, startCol, hasStart,
+      visited: Array.from(visited), historyStack, rowDoneSet: Array.from(rowDoneSet),
+      zoom, scaleX, scaleY, panX, panY, imageOpacity, cropRect, focusMode
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+    filenameEl.textContent = "Progress saved on this device";
+  } catch(e) {
+    filenameEl.textContent = "Could not save progress here";
+  }
+}
+
+function loadSavedState() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data.imageData) return false;
+    img = new Image();
+    img.onload = function() {
+      imageLoaded = true;
+      rows = data.rows || 20;
+      cols = data.cols || 20;
+      axisStep = data.axisStep || 1;
+      majorStep = data.majorStep || 10;
+      rowsInput.value = rows;
+      colsInput.value = cols;
+      axisStepInput.value = axisStep;
+      majorSlider.value = majorStep;
+      currentRow = data.currentRow || 0;
+      currentCol = data.currentCol || 0;
+      startRow = data.startRow || 0;
+      startCol = data.startCol || 0;
+      hasStart = !!data.hasStart;
+      visited = new Set(data.visited || []);
+      historyStack = data.historyStack || [];
+      rowDoneSet = new Set(data.rowDoneSet || []);
+      zoom = data.zoom || 1;
+      scaleX = data.scaleX || 1;
+      scaleY = data.scaleY || 1;
+      panX = data.panX || 0;
+      panY = data.panY || 0;
+      imageOpacity = data.imageOpacity || 1;
+      cropRect = data.cropRect || null;
+      focusMode = !!data.focusMode;
+      zoomSlider.value = zoom;
+      scaleXSlider.value = scaleX;
+      scaleYSlider.value = scaleY;
+      panXSlider.value = panX;
+      panYSlider.value = panY;
+      opacitySlider.value = imageOpacity;
+      if (!cropRect) createDefaultCrop();
+      filenameEl.textContent = "Loaded saved progress from this device";
+      draw();
+    };
+    img.src = data.imageData;
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+function getCanvasRegions() {
+  const axisPadX = 56;
+  const axisPadY = 52;
+  return {
+    gridLeft: axisPadX,
+    gridTop: 0,
+    gridW: canvas.width - axisPadX,
+    gridH: canvas.height - axisPadY
+  };
+}
+
+function cropToPixels() {
+  return {
+    x: cropRect.x * img.width,
+    y: cropRect.y * img.height,
+    w: cropRect.w * img.width,
+    h: cropRect.h * img.height
+  };
+}
+
+function normalizeCrop() {
+  if (!cropRect) return;
+  const minSize = 0.02;
+  cropRect.w = Math.max(minSize, Math.min(1, cropRect.w));
+  cropRect.h = Math.max(minSize, Math.min(1, cropRect.h));
+  cropRect.x = Math.max(0, Math.min(1 - cropRect.w, cropRect.x));
+  cropRect.y = Math.max(0, Math.min(1 - cropRect.h, cropRect.y));
+}
+
+function getCropHandleAt(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const {gridLeft, gridTop, gridW, gridH} = getCanvasRegions();
+  const crop = {
+    x: gridLeft + cropRect.x * gridW,
+    y: gridTop + cropRect.y * gridH,
+    w: cropRect.w * gridW,
+    h: cropRect.h * gridH
+  };
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  const handles = {
+    nw: {x: crop.x, y: crop.y},
+    ne: {x: crop.x + crop.w, y: crop.y},
+    sw: {x: crop.x, y: crop.y + crop.h},
+    se: {x: crop.x + crop.w, y: crop.y + crop.h}
+  };
+  for (const [name, p] of Object.entries(handles)) {
+    if (Math.abs(x - p.x) <= 12 && Math.abs(y - p.y) <= 12) return name;
+  }
+  if (x >= crop.x && x <= crop.x + crop.w && y >= crop.y && y <= crop.y + crop.h) return "body";
+  return null;
+}
+
+function drawAxes(gridLeft, gridTop, gridW, gridH, cellW, cellH) {
+  ctx.save();
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 13px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  for (let c = 0; c < cols; c++) {
+    const displayNumber = cols - c;
+    if (displayNumber % axisStep !== 0 && displayNumber !== cols && displayNumber !== 1) continue;
+    const x = gridLeft + c * cellW + cellW / 2;
+    ctx.fillText(String(displayNumber), x, gridTop + gridH + 8);
+  }
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let r = 0; r < rows; r++) {
+    const displayNumber = rows - r;
+    if (displayNumber % axisStep !== 0 && displayNumber !== rows && displayNumber !== 1) continue;
+    const y = gridTop + r * cellH + cellH / 2;
+    ctx.fillText(String(displayNumber), gridLeft - 8, y);
+  }
+  ctx.restore();
+}
+
+function drawCropOverlay(gridLeft, gridTop, gridW, gridH) {
+  if (!cropMode) return;
+  const cropX = gridLeft + cropRect.x * gridW;
+  const cropY = gridTop + cropRect.y * gridH;
+  const cropW = cropRect.w * gridW;
+  const cropH = cropRect.h * gridH;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.fillRect(gridLeft, gridTop, gridW, gridH);
+  ctx.clearRect(cropX, cropY, cropW, cropH);
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(cropX, cropY, cropW, cropH);
+  ctx.fillStyle = "#f59e0b";
+  const s = 12;
+  ctx.fillRect(cropX - s/2, cropY - s/2, s, s);
+  ctx.fillRect(cropX + cropW - s/2, cropY - s/2, s, s);
+  ctx.fillRect(cropX - s/2, cropY + cropH - s/2, s, s);
+  ctx.fillRect(cropX + cropW - s/2, cropY + cropH - s/2, s, s);
+  ctx.fillStyle = "rgba(0,0,0,0.68)";
+  ctx.fillRect(0, 0, canvas.width, 44);
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 20px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("Crop mode on: drag corners or drag inside the box", canvas.width / 2, 28);
+  ctx.restore();
+}
+
+function draw() {
+  updateText();
+  updateStatus();
+  if (!imageLoaded) return;
+
+  clampNumbers();
+  canvas.style.display = "block";
+  emptyState.style.display = "none";
+  setupCanvasSize();
+
+  const {gridLeft, gridTop, gridW, gridH} = getCanvasRegions();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const source = cropToPixels();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(gridLeft, gridTop, gridW, gridH);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(gridLeft, gridTop, gridW, gridH);
+  ctx.clip();
+
+  const drawW = gridW * zoom * scaleX;
+  const drawH = gridH * zoom * scaleY;
+  const dx = gridLeft + (gridW - drawW) / 2 + panX;
+  const dy = gridTop + (gridH - drawH) / 2 + panY;
+
+  ctx.globalAlpha = imageOpacity;
+  ctx.drawImage(img, source.x, source.y, source.w, source.h, dx, dy, drawW, drawH);
+  ctx.globalAlpha = 1;
+
+  const cellW = gridW / cols;
+  const cellH = gridH / rows;
+
+  if (focusMode) {
+    ctx.fillStyle = "rgba(124,58,237,0.22)";
+    ctx.fillRect(gridLeft, gridTop + currentRow * cellH, gridW, cellH);
+  }
+
+  rowDoneSet.forEach(r => {
+    r = Number(r);
+    if (r >= 0 && r < rows) {
+      ctx.fillStyle = "rgba(34,197,94,0.42)";
+      ctx.fillRect(gridLeft, gridTop + r * cellH, gridW, cellH);
+    }
+  });
+
+  visited.forEach(key => {
+    const [r, c] = key.split(",").map(Number);
+    if (r >= 0 && r < rows && c >= 0 && c < cols) {
+      ctx.fillStyle = "rgba(34,197,94,0.62)";
+      ctx.fillRect(gridLeft + c * cellW, gridTop + r * cellH, cellW, cellH);
+    }
+  });
+
+  if (hasStart) {
+    ctx.fillStyle = "rgba(245,158,11,0.45)";
+    ctx.fillRect(gridLeft + startCol * cellW, gridTop + startRow * cellH, cellW, cellH);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#f59e0b";
+    ctx.strokeRect(gridLeft + startCol * cellW, gridTop + startRow * cellH, cellW, cellH);
+  }
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(0,0,0,0.32)";
+  for (let r = 0; r <= rows; r++) {
+    const y = gridTop + r * cellH;
+    ctx.beginPath();
+    ctx.moveTo(gridLeft, y);
+    ctx.lineTo(gridLeft + gridW, y);
+    ctx.stroke();
+  }
+  for (let c = 0; c <= cols; c++) {
+    const x = gridLeft + c * cellW;
+    ctx.beginPath();
+    ctx.moveTo(x, gridTop);
+    ctx.lineTo(x, gridTop + gridH);
+    ctx.stroke();
+  }
+
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = "rgba(0,0,0,0.55)";
+  for (let r = 0; r <= rows; r++) {
+    const displayNumber = rows - r;
+    if (r === 0 || r === rows || displayNumber % majorStep === 0) {
+      const y = gridTop + r * cellH;
+      ctx.beginPath();
+      ctx.moveTo(gridLeft, y);
+      ctx.lineTo(gridLeft + gridW, y);
+      ctx.stroke();
+    }
+  }
+  for (let c = 0; c <= cols; c++) {
+    const displayNumber = cols - c;
+    if (c === 0 || c === cols || displayNumber % majorStep === 0) {
+      const x = gridLeft + c * cellW;
+      ctx.beginPath();
+      ctx.moveTo(x, gridTop);
+      ctx.lineTo(x, gridTop + gridH);
+      ctx.stroke();
+    }
+  }
+
+  ctx.fillStyle = "rgba(220,38,38,0.30)";
+  ctx.fillRect(gridLeft + currentCol * cellW, gridTop + currentRow * cellH, cellW, cellH);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#dc2626";
+  ctx.strokeRect(gridLeft + currentCol * cellW, gridTop + currentRow * cellH, cellW, cellH);
+
+  ctx.restore();
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#111827";
+  ctx.strokeRect(gridLeft, gridTop, gridW, gridH);
+  drawAxes(gridLeft, gridTop, gridW, gridH, gridW / cols, gridH / rows);
+  drawCropOverlay(gridLeft, gridTop, gridW, gridH);
+
+  if (choosingStart) {
+    ctx.fillStyle = "rgba(0,0,0,0.68)";
+    ctx.fillRect(0, 0, canvas.width, 44);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 20px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Tap the stitch where she starts", canvas.width / 2, 28);
+  }
+}
+
+function addVisited(r,c){ visited.add(cellKey(r,c)); }
+
+function moveTo(newR,newC) {
+  const oldR = currentRow;
+  const oldC = currentCol;
+  const before = Array.from(visited);
+  const prevRows = Array.from(rowDoneSet);
+  currentRow = Math.max(0, Math.min(rows - 1, newR));
+  currentCol = Math.max(0, Math.min(cols - 1, newC));
+  if (oldR === currentRow) {
+    const s = Math.min(oldC, currentCol), e = Math.max(oldC, currentCol);
+    for (let c = s; c <= e; c++) addVisited(currentRow, c);
+  } else if (oldC === currentCol) {
+    const s = Math.min(oldR, currentRow), e = Math.max(oldR, currentRow);
+    for (let r = s; r <= e; r++) addVisited(r, currentCol);
+  } else {
+    addVisited(oldR, oldC); addVisited(currentRow, currentCol);
+  }
+  historyStack.push({type:"move", prevRow:oldR, prevCol:oldC, prevVisited:before, prevRows});
+  draw(); saveState();
+}
+
+function markCurrentRowDone() {
+  const before = Array.from(visited);
+  const prevRows = Array.from(rowDoneSet);
+  for (let c = 0; c < cols; c++) addVisited(currentRow, c);
+  rowDoneSet.add(currentRow);
+  historyStack.push({type:"rowdone", row:currentRow, prevVisited:before, prevRows});
+  draw(); saveState();
+}
+
+function undoLast() {
+  const last = historyStack.pop();
+  if (!last) return;
+  visited = new Set(last.prevVisited || []);
+  rowDoneSet = new Set(last.prevRows || []);
+  if (last.type === "move") {
+    currentRow = last.prevRow; currentCol = last.prevCol;
+  }
+  draw(); saveState();
+}
+
+function resetView() {
+  zoom = 1; scaleX = 1; scaleY = 1; panX = 0; panY = 0; imageOpacity = 1;
+  zoomSlider.value = "1"; scaleXSlider.value = "1"; scaleYSlider.value = "1";
+  panXSlider.value = "0"; panYSlider.value = "0"; opacitySlider.value = "1";
+  if (imageLoaded) createDefaultCrop();
+  draw(); saveState();
+}
+
+upload.addEventListener("change", e => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  filenameEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    img = new Image();
+    img.onload = () => {
+      imageLoaded = true;
+      createDefaultCrop();
+      rows = parseInt(rowsInput.value || "20", 10);
+      cols = parseInt(colsInput.value || "20", 10);
+      axisStep = parseInt(axisStepInput.value || "1", 10);
+      currentRow = 0; currentCol = 0; startRow = 0; startCol = 0;
+      hasStart = false; choosingStart = false;
+      visited = new Set(); historyStack = []; rowDoneSet = new Set();
+      zoom = 1; scaleX = 1; scaleY = 1; panX = 0; panY = 0; imageOpacity = 1;
+      zoomSlider.value = "1"; scaleXSlider.value = "1"; scaleYSlider.value = "1";
+      panXSlider.value = "0"; panYSlider.value = "0"; opacitySlider.value = "1";
+      draw(); saveState();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+applyBtn.addEventListener("click", ()=>{ draw(); saveState(); });
+document.getElementById("setStartBtn").addEventListener("click", ()=>{
+  if (!imageLoaded) return;
+  choosingStart = true; cropMode = false; draw();
+});
+document.getElementById("clearPathBtn").addEventListener("click", ()=>{
+  visited = new Set(); historyStack = []; rowDoneSet = new Set();
+  if (hasStart) visited.add(cellKey(startRow, startCol));
+  draw(); saveState();
+});
+document.getElementById("cropModeBtn").addEventListener("click", ()=>{
+  if (!imageLoaded) return;
+  cropMode = !cropMode; dragImageMode = false; choosingStart = false; draw();
+});
+document.getElementById("dragModeBtn").addEventListener("click", ()=>{
+  if (!imageLoaded) return;
+  dragImageMode = !dragImageMode; cropMode = false; choosingStart = false; draw();
+});
+document.getElementById("focusModeBtn").addEventListener("click", ()=>{
+  focusMode = !focusMode; draw(); saveState();
+});
+document.getElementById("resetViewBtn").addEventListener("click", resetView);
+document.getElementById("undoBtn").addEventListener("click", undoLast);
+document.getElementById("rowDoneBtn").addEventListener("click", markCurrentRowDone);
+document.getElementById("saveBtn").addEventListener("click", saveState);
+
+zoomSlider.addEventListener("input", ()=>{ zoom = Number(zoomSlider.value); draw(); });
+scaleXSlider.addEventListener("input", ()=>{ scaleX = Number(scaleXSlider.value); draw(); });
+scaleYSlider.addEventListener("input", ()=>{ scaleY = Number(scaleYSlider.value); draw(); });
+panXSlider.addEventListener("input", ()=>{ panX = Number(panXSlider.value); draw(); });
+panYSlider.addEventListener("input", ()=>{ panY = Number(panYSlider.value); draw(); });
+opacitySlider.addEventListener("input", ()=>{ imageOpacity = Number(opacitySlider.value); draw(); });
+majorSlider.addEventListener("input", ()=>{ majorStep = Math.max(2, parseInt(majorSlider.value || "10", 10)); draw(); });
+axisStepInput.addEventListener("input", ()=>{ axisStep = Math.max(1, parseInt(axisStepInput.value || "1", 10)); draw(); });
+rowsInput.addEventListener("input", draw);
+colsInput.addEventListener("input", draw);
+
+document.getElementById("leftBtn").addEventListener("click", ()=>moveTo(currentRow, currentCol - 1));
+document.getElementById("rightBtn").addEventListener("click", ()=>moveTo(currentRow, currentCol + 1));
+document.getElementById("upBtn").addEventListener("click", ()=>moveTo(currentRow - 1, currentCol));
+document.getElementById("downBtn").addEventListener("click", ()=>moveTo(currentRow + 1, currentCol));
+
+function pointerDown(clientX, clientY) {
+  if (!imageLoaded) return;
+  if (cropMode) {
+    const handle = getCropHandleAt(clientX, clientY);
+    if (handle === "body") {
+      const rect = canvas.getBoundingClientRect();
+      draggingCropBody = true;
+      cropDragStart = { x: clientX - rect.left, y: clientY - rect.top, rect: {...cropRect} };
+    } else if (handle) {
+      draggingCropHandle = { handle, rect: {...cropRect} };
+    }
+    return;
+  }
+  if (dragImageMode) {
+    draggingImage = true;
+    dragStartX = clientX; dragStartY = clientY;
+    dragPanX = Number(panXSlider.value); dragPanY = Number(panYSlider.value);
+  }
+}
+
+function pointerMove(clientX, clientY) {
+  if (!imageLoaded) return;
+
+  if (draggingImage) {
+    const dx = clientX - dragStartX;
+    const dy = clientY - dragStartY;
+    panX = Math.max(-1200, Math.min(1200, dragPanX + dx));
+    panY = Math.max(-1200, Math.min(1200, dragPanY + dy));
+    panXSlider.value = String(Math.round(panX));
+    panYSlider.value = String(Math.round(panY));
+    draw();
+    return;
+  }
+
+  if (cropMode && (draggingCropHandle || draggingCropBody)) {
+    const rect = canvas.getBoundingClientRect();
+    const {gridLeft, gridTop, gridW, gridH} = getCanvasRegions();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    if (draggingCropBody && cropDragStart) {
+      const dx = (x - cropDragStart.x) / gridW;
+      const dy = (y - cropDragStart.y) / gridH;
+      cropRect.x = cropDragStart.rect.x + dx;
+      cropRect.y = cropDragStart.rect.y + dy;
+      normalizeCrop();
+      draw();
+      return;
+    }
+
+    if (draggingCropHandle) {
+      const base = draggingCropHandle.rect;
+      let x1 = base.x, y1 = base.y, x2 = base.x + base.w, y2 = base.y + base.h;
+      const rx = (x - gridLeft) / gridW;
+      const ry = (y - gridTop) / gridH;
+      if (draggingCropHandle.handle === "nw") { x1 = rx; y1 = ry; }
+      if (draggingCropHandle.handle === "ne") { x2 = rx; y1 = ry; }
+      if (draggingCropHandle.handle === "sw") { x1 = rx; y2 = ry; }
+      if (draggingCropHandle.handle === "se") { x2 = rx; y2 = ry; }
+
+      cropRect.x = Math.min(x1, x2);
+      cropRect.y = Math.min(y1, y2);
+      cropRect.w = Math.abs(x2 - x1);
+      cropRect.h = Math.abs(y2 - y1);
+      normalizeCrop();
+      draw();
+    }
+  }
+}
+
+function pointerUp() {
+  if (draggingImage || draggingCropBody || draggingCropHandle) {
+    draggingImage = false;
+    draggingCropBody = false;
+    draggingCropHandle = null;
+    cropDragStart = null;
+    draw();
+    saveState();
+  }
+}
+
+canvas.addEventListener("wheel", e => {
+  if (!imageLoaded) return;
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 1.05 : 0.95;
+  zoom = Math.max(0.4, Math.min(6, zoom * delta));
+  zoomSlider.value = String(zoom.toFixed(2));
+  draw();
+}, {passive:false});
+
+canvas.addEventListener("click", e => {
+  if (!imageLoaded || cropMode || dragImageMode || draggingImage || draggingCropBody || draggingCropHandle) return;
+  const rect = canvas.getBoundingClientRect();
+  const {gridLeft, gridTop, gridW, gridH} = getCanvasRegions();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if (x < gridLeft || y < gridTop || x > gridLeft + gridW || y > gridTop + gridH) return;
+  const cellW = gridW / cols;
+  const cellH = gridH / rows;
+  const tapCol = Math.max(0, Math.min(cols - 1, Math.floor((x - gridLeft) / cellW)));
+  const tapRow = Math.max(0, Math.min(rows - 1, Math.floor((y - gridTop) / cellH)));
+
+  if (choosingStart) {
+    startRow = tapRow; startCol = tapCol;
+    currentRow = tapRow; currentCol = tapCol;
+    hasStart = true; choosingStart = false;
+    visited = new Set([cellKey(startRow, startCol)]);
+    historyStack = []; rowDoneSet = new Set();
+    draw(); saveState(); return;
+  }
+  moveTo(tapRow, tapCol);
+});
+
+canvas.addEventListener("mousedown", e => pointerDown(e.clientX, e.clientY));
+window.addEventListener("mousemove", e => pointerMove(e.clientX, e.clientY));
+window.addEventListener("mouseup", pointerUp);
+canvas.addEventListener("touchstart", e => { const t = e.touches[0]; pointerDown(t.clientX, t.clientY); }, {passive:true});
+canvas.addEventListener("touchmove", e => { const t = e.touches[0]; pointerMove(t.clientX, t.clientY); }, {passive:true});
+canvas.addEventListener("touchend", pointerUp, {passive:true});
+
+document.addEventListener("keydown", e => {
+  const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toLowerCase() : "";
+  if (tag === "input" || tag === "textarea") return;
+  if (!imageLoaded) return;
+  if (e.key === "ArrowLeft") { e.preventDefault(); moveTo(currentRow, currentCol - 1); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); moveTo(currentRow, currentCol + 1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); moveTo(currentRow - 1, currentCol); }
+  else if (e.key === "ArrowDown") { e.preventDefault(); moveTo(currentRow + 1, currentCol); }
+  else if (e.key === "Enter") { e.preventDefault(); markCurrentRowDone(); }
+});
+
+window.addEventListener("resize", ()=>{ if (imageLoaded) draw(); });
+
+updateText();
+updateStatus();
+loadSavedState();
+</script>
+</body>
+</html>
